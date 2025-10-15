@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Channel Performance - Pastel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f0f0f0;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .layout {
+            display: grid;
+            grid-template-columns: 480px 1fr;
+            gap: 24px;
+        }
+        
+        .input-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .input-panel h2 {
+            font-size: 18px;
+            color: #222;
+        }
+        
+        textarea#dataInput {
+            width: 100%;
+            height: 420px;
+            padding: 12px 14px;
+            border: 1px solid #e3e3e3;
+            border-radius: 8px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: vertical;
+            background: #fafafa;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .primary-btn {
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .primary-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 700px;
+            margin: 20px 0;
+        }
+        
+        .download-section {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .download-btn {
+            flex: 1;
+            min-width: 200px;
+            padding: 15px;
+            background: linear-gradient(135deg, #BB162B 0%, #8B1121 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(187, 22, 43, 0.4);
+        }
+        
+        .instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #BB162B;
+        }
+        
+        .instructions h3 {
+            color: #BB162B;
+            margin-bottom: 10px;
+        }
+        
+        .instructions p {
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="layout">
+            <div class="input-panel">
+                <h2>Paste table text</h2>
+                <textarea id="dataInput" placeholder="Paste data with columns: Channel | % Spend | Efficiency | Effectiveness
+Example:
+Channel	% Spend	Efficiency	Effectiveness
+TRANS 7	16.04	1.39	0.7
+SCTV	5.58	0.87	0.42
+RTV	6.19	0.21	0.36
+RCTI	12.43	1.18	1.4
+NET	16.55	1.37	1.42
+MNCTV	9.44	0.71	1.2
+KOMPAS TV	15.98	0.78	1.63
+IVM	6.9	0.52	0.94
+iNEWS	4.87	1.13	1.07
+Tiktok	6.4	0.54	0.86"></textarea>
+                <div class="controls">
+                    <button class="primary-btn" onclick="generateFromInput()">Generate Bubble Chart</button>
+                </div>
+                <div class="instructions">
+                    <h3>📋 Paste Guide</h3>
+                    <p>Copy rows from Excel/Sheets or a text table. Headers can be present or omitted.</p>
+                    <p>Accepted separators: tab, comma, semicolon, or multiple spaces.</p>
+                </div>
+            </div>
+            <div>
+                <div class="chart-wrapper">
+                    <canvas id="bubbleChart"></canvas>
+                </div>
+                <div class="download-section">
+                    <button class="download-btn" onclick="downloadPNG()">📊 Download PNG (High Resolution)</button>
+                    <button class="download-btn" onclick="downloadSVG()">📄 Download SVG (Vector)</button>
+                </div>
+                <div class="instructions">
+                    <h3>📋 How to Use in PowerPoint:</h3>
+                    <p><strong>1.</strong> Click "Download PNG" for the best PowerPoint compatibility</p>
+                    <p><strong>2.</strong> In PowerPoint: Insert > Pictures > select your downloaded file</p>
+                    <p><strong>3.</strong> Resize as needed - the high resolution ensures clarity at any size</p>
+                    <p><strong>4.</strong> Channel names are labeled directly on bubbles for easy identification</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Register the datalabels plugin
+        Chart.register(ChartDataLabels);
+        
+        const ctx = document.getElementById('bubbleChart').getContext('2d');
+        
+        // Pastel Colors for Channels
+        const pastelColors = {
+            trans7: '#FFB3BA',      // Pastel Red
+            sctv: '#FFDFBA',        // Pastel Orange
+            rtv: '#FFFFBA',         // Pastel Yellow
+            rcti: '#BAFFC9',        // Pastel Green
+            net: '#BAE1FF',         // Pastel Blue
+            mnctv: '#E0BBE4',       // Pastel Purple
+            kompas: '#FFD1DC',      // Pastel Pink
+            ivm: '#D4F1F4',         // Pastel Cyan
+            inews: '#C7CEEA',       // Pastel Lavender
+            tiktok: '#B5EAD7'       // Pastel Mint
+        };
+        
+        let bubbleChart = new Chart(ctx, {
+            type: 'bubble',
+            data: { datasets: [] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            padding: 15,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Channel Performance: Efficiency vs Effectiveness',
+                        font: {
+                            size: 24,
+                            weight: 'bold'
+                        },
+                        padding: 20,
+                        color: '#333'
+                    },
+                    datalabels: {
+                        color: '#333',
+                        font: {
+                            size: 13,
+                            weight: 'bold'
+                        },
+                        formatter: function(value, context) {
+                            return context.dataset.label;
+                        },
+                        anchor: 'center',
+                        align: 'center',
+                        textAlign: 'center',
+                        padding: 4,
+                        display: function(context) {
+                            return true;
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: '#333',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        padding: 15,
+                        titleFont: {
+                            size: 16,
+                            weight: 'bold'
+                        },
+                        bodyFont: {
+                            size: 14
+                        },
+                        callbacks: {
+                            label: function(context) {
+                                const efficiency = context.parsed.x.toFixed(2);
+                                const effectiveness = context.parsed.y.toFixed(2);
+                                const spend = (context.raw.r / 1.5).toFixed(2);
+                                return [
+                                    `Efficiency: ${efficiency}`,
+                                    `Effectiveness: ${effectiveness}`,
+                                    `Spend: ${spend}%`
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Efficiency',
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            color: '#333'
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.08)',
+                            lineWidth: 1
+                        },
+                        ticks: {
+                            font: {
+                                size: 14
+                            },
+                            color: '#333'
+                        },
+                        min: 0,
+                        max: 2
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Effectiveness',
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            color: '#333'
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.08)',
+                            lineWidth: 1
+                        },
+                        ticks: {
+                            font: {
+                                size: 14
+                            },
+                            color: '#333'
+                        },
+                        min: 0,
+                        max: 2
+                    }
+                },
+                animation: {
+                    duration: 1500,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+        
+        function colorForIndex(index) {
+            const palette = [
+                pastelColors.trans7,
+                pastelColors.sctv,
+                pastelColors.rtv,
+                pastelColors.rcti,
+                pastelColors.net,
+                pastelColors.mnctv,
+                pastelColors.kompas,
+                pastelColors.ivm,
+                pastelColors.inews,
+                pastelColors.tiktok
+            ];
+            return palette[index % palette.length];
+        }
+        
+        function parseNumber(raw) {
+            if (typeof raw !== 'string') return Number(raw);
+            const cleaned = raw.replace(/[%\s]/g, '').replace(/,/g, '.');
+            const n = Number(cleaned);
+            return isNaN(n) ? null : n;
+        }
+        
+        function parseTableText(text) {
+            if (!text) return [];
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            if (!lines.length) return [];
+            const rows = [];
+            
+            const splitter = (line) => {
+                if (line.includes('\t')) return line.split('\t');
+                if (line.includes(';')) return line.split(';');
+                if (line.includes(',')) return line.split(',');
+                return line.trim().split(/\s{2,}/);
+            };
+            
+            // remove header if detected
+            const headerLike = /channel|%\s*spend|efficiency|effectiveness/i;
+            let startIdx = 0;
+            if (headerLike.test(lines[0])) startIdx = 1;
+            
+            for (let i = startIdx; i < lines.length; i++) {
+                const cols = splitter(lines[i]).map(c => c.trim());
+                if (cols.length < 4) continue;
+                const name = cols[0];
+                const spend = parseNumber(cols[1]);
+                const efficiency = parseNumber(cols[2]);
+                const effectiveness = parseNumber(cols[3]);
+                if (!name || spend == null || efficiency == null || effectiveness == null) continue;
+                rows.push({ name, spend, efficiency, effectiveness });
+            }
+            return rows;
+        }
+        
+        function buildDatasets(rows) {
+            return rows.map((row, idx) => {
+                const border = colorForIndex(idx);
+                const bg = border + 'DD';
+                return {
+                    label: row.name,
+                    data: [{ x: row.efficiency, y: row.effectiveness, r: row.spend * 1.5 }],
+                    backgroundColor: bg,
+                    borderColor: border,
+                    borderWidth: 3
+                };
+            });
+        }
+        
+        function generateFromInput() {
+            const text = document.getElementById('dataInput').value;
+            const rows = parseTableText(text);
+            const datasets = buildDatasets(rows);
+            bubbleChart.data.datasets = datasets;
+            bubbleChart.update();
+        }
+        
+        // Initialize with the example pasted in the textarea
+        window.addEventListener('DOMContentLoaded', () => {
+            generateFromInput();
+        });
+        
+        function downloadPNG() {
+            const canvas = document.getElementById('bubbleChart');
+            const link = document.createElement('a');
+            link.download = 'channel-performance-chart.png';
+            link.href = canvas.toDataURL('image/png', 1.0);
+            link.click();
+        }
+        
+        function downloadSVG() {
+            const canvas = document.getElementById('bubbleChart');
+            const chartDataURL = canvas.toDataURL('image/png', 1.0);
+            
+            const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+     width="1400" height="900" viewBox="0 0 1400 900">
+  <title>Channel Performance Analysis</title>
+  <rect width="1400" height="900" fill="#ffffff"/>
+  <image x="0" y="0" width="1400" height="900" xlink:href="${chartDataURL}"/>
+</svg>`;
+            
+            const blob = new Blob([svg], {type: 'image/svg+xml'});
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'channel-performance-chart.svg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
